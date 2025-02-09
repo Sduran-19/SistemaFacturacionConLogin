@@ -1,0 +1,269 @@
+﻿@page "/CreateCuentasXcobrar"
+@using Radzen
+@using SistemaFacturacion.Models
+@using SistemaFacturacion.Services
+@rendermode InteractiveServer
+@inject NavigationManager navigation
+@inject CuentasXcobrarService cuentasXcobrarService
+@inject ProductosService productosService
+@inject NotificationService notificationService
+
+<PageTitle>Crear Cuenta por Cobrar</PageTitle>
+<EditForm Model="cuenta" OnValidSubmit="CrearCuenta">
+    <DataAnnotationsValidator />
+    <div class="container">
+        <div class="card shadow-lg">
+            <!-- Header -->
+            <div class="card-header">
+                <h3 class="text-center"><strong>Crear Cuenta por Cobrar</strong></h3>
+            </div>
+            <!-- Body -->
+            <div class="card-body">
+                <!-- Datos de Cliente -->
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label" for="nombreCliente"><strong>Cliente:</strong></label>
+                        <InputText id="nombreCliente" class="form-control" @bind-Value="cuenta.NombreCliente" placeholder="Ej: Juan Pérez"></InputText>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="direccion"><strong>Dirección:</strong></label>
+                        <InputText id="direccion" class="form-control" @bind-Value="cuenta.Direccion" placeholder="Ej: Ave. Libertad #10"></InputText>
+                    </div>
+                </div>
+
+                <!-- Datos de Contacto -->
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label" for="telefono"><strong>Teléfono:</strong></label>
+                        <InputText id="telefono" class="form-control" @bind-Value="cuenta.Telefono" placeholder="Ej: 829-284-3031"></InputText>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="email"><strong>Email:</strong></label>
+                        <InputText id="email" class="form-control" @bind-Value="cuenta.Email" placeholder="Ej: usuario@gmail.com"></InputText>
+                    </div>
+                </div>
+
+                <!-- Detalle de Factura -->
+                <fieldset class="border-primary border border-2">
+                    <div class="card-body">
+                        <section class="row mb-4">
+                            <div class="col-4">
+                                <label class="form-label" for="producto"><strong>Producto:</strong></label>
+                                <InputSelect id="producto" class="form-select" @bind-Value="productoId" @oninput="CalcularMonto">
+                                    <option value="0" disabled>Elige una opción</option>
+                                    @foreach (var producto in productos)
+                                    {
+                                        <option value="@producto.ProductoId">@producto.Nombre</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label" for="cantidad"><strong>Cantidad:</strong></label>
+                                <InputNumber id="cantidad" class="form-control" @bind-Value="cantidad" @oninput="CalcularMonto"></InputNumber>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label" for="descuento"><strong>Descuento (%):</strong></label>
+                                <InputNumber id="descuento" class="form-control" @bind-Value="descuento" @oninput="CalcularMonto"></InputNumber>
+                            </div>
+                            <div class="col-4 d-flex align-items-end">
+                                <button type="button" class="btn btn-outline-success" @onclick="AgregarDetalle"><i class="bi bi-plus-circle" /> Agregar</button>
+                            </div>
+                        </section>
+                        <section>
+                            @if (cuenta.VentasDetalles.Count > 0)
+                            {
+                                <table class="table table-bordered miTabla">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Cantidad</th>
+                                            <th>Precio de Venta</th>
+                                            <th>Descuento (%)</th>
+                                            <th>Total</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var detalle in cuenta.VentasDetalles)
+                                        {
+                                            <tr>
+                                                <td>@ObtenerNombreProducto(detalle.ProductoId)</td>
+                                                <td>@detalle.Cantidad</td>
+                                                <td>@detalle.PrecioVenta.ToString("N2")</td>
+                                                <td>@detalle.Descuento.ToString("N2")</td>
+                                                <td>@detalle.SubTotal.ToString("N2")</td>
+                                                <td><button type="button" class="btn btn-outline-danger" @onclick="()=> EliminarDetalle(detalle)"><i class="bi bi-trash3-fill" /></button></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+
+                                <div class="row">
+                                    <div class="col text-start">
+                                        <p><strong>Total de Productos: </strong>@cuenta.VentasDetalles.Count</p>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col text-end">
+                                        <h5><strong>Total:</strong> $@cuenta.VentasDetalles.Sum(f => f.SubTotal).ToString("N2")</h5>
+                                    </div>
+                                </div>
+                            }
+                        </section>
+                    </div>
+                </fieldset>
+            </div>
+
+            <!-- Footer -->
+            <div class="card-footer d-flex justify-content-center">
+                <div class="px-2">
+                    <button type="button" class="btn btn-outline-primary" @onclick="Volver"><i class="bi bi-box-arrow-left" /> Volver</button>
+                </div>
+                <button type="submit" class="btn btn-outline-success"><i class="bi bi-floppy-fill" /> Crear</button>
+            </div>
+        </div>
+    </div>
+</EditForm>
+<RadzenNotification />
+
+@code {
+    public CuentasXcobrar cuenta { get; set; } = new CuentasXcobrar();
+    public int productoId { get; set; }
+    public int cantidad { get; set; }
+    public decimal descuento { get; set; }
+    public decimal precioVenta { get; set; }
+    public decimal subTotal { get; set; }
+    public List<Productos> productos = new List<Productos>();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        productos = await productosService.Listar(e => true);
+    }
+
+    public async Task CrearCuenta()
+    {
+        if (await Validar())
+        {
+            MostrarNotificacion("Error", "Por favor, complete todos los campos requeridos.", NotificationSeverity.Error);
+            return;
+        }
+
+        var cuentaCreada = await cuentasXcobrarService.Crear(cuenta);
+        if (cuentaCreada)
+        {
+            MostrarNotificacion("Éxito", "Cuenta por cobrar creada exitosamente.", NotificationSeverity.Success);
+            await Task.Delay(2000);
+            await ReducirInventario();
+            Volver();
+        }
+        else
+        {
+            MostrarNotificacion("Error", "Hubo un problema al crear la cuenta.", NotificationSeverity.Error);
+        }
+    }
+
+    public async Task<bool> Validar()
+    {
+        if (string.IsNullOrEmpty(cuenta.NombreCliente) ||
+            string.IsNullOrEmpty(cuenta.Direccion) ||
+            cuenta.VentasDetalles.Count == 0)
+        {
+            return true; // Indica que hay errores
+        }
+
+        foreach (var detalle in cuenta.VentasDetalles)
+        {
+            if (productos.All(p => p.ProductoId != detalle.ProductoId))
+            {
+                return true; // Detiene el proceso
+            }
+        }
+
+        return false; // No hay errores
+    }
+
+    public string ObtenerNombreProducto(int id)
+    {
+        var producto = productos.FirstOrDefault(p => p.ProductoId == id);
+        return producto?.Nombre ?? "Producto no encontrado";
+    }
+
+    public async Task ReducirInventario()
+    {
+        foreach (var detalle in cuenta.VentasDetalles)
+        {
+            var producto = productos.FirstOrDefault(p => p.ProductoId == detalle.ProductoId);
+            if (producto != null)
+            {
+                producto.Cantidad -= detalle.Cantidad;
+                await productosService.Modificar(producto);
+            }
+        }
+    }
+
+    public void AgregarDetalle()
+    {
+        var nuevoDetalle = new VentasDetalle
+            {
+                ProductoId = productoId,
+                Cantidad = cantidad,
+                PrecioVenta = precioVenta,
+                Descuento = descuento,
+                SubTotal = CalcularSubTotal(precioVenta, cantidad, descuento)
+            };
+
+        cuenta.VentasDetalles.Add(nuevoDetalle);
+        MostrarNotificacion("Éxito", "Detalle agregado correctamente.", NotificationSeverity.Success);
+        LimpiarPantalla();
+    }
+
+    public void EliminarDetalle(VentasDetalle detalle)
+    {
+        cuenta.VentasDetalles.Remove(detalle);
+        MostrarNotificacion("Éxito", "Detalle eliminado correctamente.", NotificationSeverity.Success);
+    }
+
+    public void CalcularMonto()
+    {
+        if (productoId != 0)
+        {
+            var producto = productos.FirstOrDefault(p => p.ProductoId == productoId);
+            if (producto != null)
+            {
+                precioVenta = producto.PrecioVenta;
+                subTotal = CalcularSubTotal(precioVenta, cantidad, descuento);
+            }
+        }
+    }
+
+    private decimal CalcularSubTotal(decimal precioVenta, int cantidad, decimal descuento)
+    {
+        var totalSinDescuento = precioVenta * cantidad;
+        return totalSinDescuento - (totalSinDescuento * descuento / 100);
+    }
+
+    public void LimpiarPantalla()
+    {
+        productoId = 0;
+        cantidad = 0;
+        descuento = 0;
+    }
+
+    public void Volver()
+    {
+        navigation.NavigateTo("/CuentasXcobrar");
+    }
+
+    void MostrarNotificacion(string titulo, string mensaje, NotificationSeverity severidad)
+    {
+        var notification = new NotificationMessage
+            {
+                Severity = severidad,
+                Summary = titulo,
+                Detail = mensaje,
+                Duration = 3000
+            };
+        notificationService.Notify(notification);
+    }
+}

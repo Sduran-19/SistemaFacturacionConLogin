@@ -1,0 +1,189 @@
+﻿@page "/DeleteFinanciamientos"
+@page "/DeleteFinanciamientos/financiamientoId={financiamientoId:int}"
+@rendermode InteractiveServer
+@inject NavigationManager navigation
+@inject FinanciamientoService financiamientoService
+@inject ProductosService productosService
+@inject NotificationService notificationService
+@inject IJSRuntime JS
+
+<PageTitle>Eliminar Financiamiento</PageTitle>
+
+<div class="container mt-4">
+    <div class="card shadow-lg p-4">
+        <div id="pdf-section">
+            <div class="col-9">
+                <img src="Imagenes/logo.jpg" alt="Factura Electrónica" class="logo-small" />
+            </div>
+
+            <hr />
+
+            <div class="d-flex justify-content-between">
+                <div>
+                    <p><strong>Cliente:</strong> @financiamiento?.NombreCliente</p>
+                    <p><strong>Dirección:</strong> @financiamiento?.Direccion</p>
+                    <p><strong>Teléfono:</strong> @financiamiento?.Telefono</p>
+                    <p><strong>Email:</strong> @financiamiento?.Email</p>
+                    <p><strong>Cantidad de Pago:</strong> @financiamiento?.CantidadPago</p>
+                    <p><strong>Forma de Pago:</strong> @financiamiento?.FormaPago</p>
+                    <p><strong>Cuotas de Pago:</strong> @financiamiento?.TotalPorPago.ToString("N2")</p>
+                </div>
+            </div>
+
+            <hr />
+
+            @if (financiamiento.VentasDetalles.Count > 0)
+            {
+                <table class="table table-striped mt-4">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio de Venta</th>
+                            <th>Descuento (%)</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var detalle in financiamiento.VentasDetalles)
+                        {
+                            <tr>
+                                <td>@ObtenerNombreProducto(detalle.ProductoId)</td>
+                                <td>@detalle.Cantidad</td>
+                                <td>@detalle.PrecioVenta.ToString("N2")</td>
+                                <td>@detalle.Descuento.ToString("N2")</td>
+                                <td>@detalle.SubTotal.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div class="row">
+                    <div class="col text-start">
+                        <p><strong>Total de Productos:</strong> @financiamiento.VentasDetalles.Count</p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col text-end">
+                        <h5><strong>Total:</strong> $@financiamiento.VentasDetalles.Sum(f => f.SubTotal).ToString("N2")</h5>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col text-end">
+                        <h5><strong>Cantidad de Pagos:</strong> @financiamiento.CantidadPago.ToString("N2")</h5>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col text-end">
+                        <h5><strong>Total por Cuota:</strong> $@financiamiento.TotalPorPago.ToString("N2")</h5>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <p class="text-danger">No se encontraron detalles de la factura.</p>
+            }
+
+            <hr />
+
+        </div>
+
+        <div class="mt-4 d-flex justify-content-end">
+            <button type="button" class="btn btn-outline-primary me-2" @onclick="Volver">
+                <i class="bi bi-box-arrow-left"></i> Volver
+            </button>
+            <button type="button" class="btn btn-outline-danger" @onclick="Eliminar">
+                <i class="bi bi-trash3-fill"></i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>
+
+<RadzenNotification />
+
+@code {
+    [Parameter]
+    public int financiamientoId { get; set; }
+
+    public Financiamiento financiamiento { get; set; } = new();
+    public List<Productos> productos { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        productos = await productosService.Listar(e => true);
+        financiamiento = await financiamientoService.Buscar(financiamientoId);
+
+        if (financiamiento == null || financiamiento.VentasDetalles == null)
+        {
+            financiamiento = new Financiamiento { VentasDetalles = new List<VentasDetalle>() };
+        }
+    }
+
+    public async Task Eliminar()
+    {
+        bool operacionExitosa = true;
+
+        // Primero eliminamos los detalles asociados al financiamiento
+        foreach (var detalle in financiamiento.VentasDetalles.ToList())
+        {
+            bool detalleEliminado = await financiamientoService.EliminarDetalle(detalle.VentaDetalleId);
+            if (!detalleEliminado)
+            {
+                operacionExitosa = false;
+                MostrarNotificacion("Error", "No se pudo eliminar un detalle de la venta.", NotificationSeverity.Error);
+                break;
+            }
+        }
+
+        // Luego eliminamos el financiamiento principal
+        if (operacionExitosa)
+        {
+            bool eliminado = await financiamientoService.Eliminar(financiamientoId);
+            if (eliminado)
+            {
+                MostrarNotificacion("Éxito", "El financiamiento fue eliminado correctamente.", NotificationSeverity.Success);
+                await Task.Delay(2000);
+                navigation.NavigateTo("/Financiamientos");
+            }
+            else
+            {
+                MostrarNotificacion("Error", "No se pudo eliminar el financiamiento.", NotificationSeverity.Error);
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    public string ObtenerNombreProducto(int id)
+    {
+        var dato = productos.FirstOrDefault(c => c.ProductoId == id);
+        return dato?.Nombre ?? "Producto no encontrado";
+    }
+
+    void Volver()
+    {
+        navigation.NavigateTo("/Financiamientos");
+    }
+
+    void MostrarNotificacion(string titulo, string mensaje, NotificationSeverity severidad)
+    {
+        var notification = new NotificationMessage
+            {
+                Severity = severidad,
+                Summary = titulo,
+                Detail = mensaje,
+                Duration = 3000
+            };
+        notificationService.Notify(notification);
+    }
+}
+
+<style>
+    .logo-small {
+        width: 150px;
+        height: auto;
+    }
+</style>

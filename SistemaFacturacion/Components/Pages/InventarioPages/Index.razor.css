@@ -1,0 +1,20 @@
+﻿﻿﻿.miMensaje {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.miTabla {
+    text-align: center;
+}
+
+.miFlecha {
+    margin-top: 10px;
+}
+
+.imagenFondo {
+    background-image: url('../../../wwwroot/Imagenes/inventario.png') background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center center;
+    width: 100%; /* Ancho del div */
+    height: 100vh;
+}

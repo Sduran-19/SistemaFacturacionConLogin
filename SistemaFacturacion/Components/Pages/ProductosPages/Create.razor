@@ -1,0 +1,138 @@
+﻿@page "/CreateProductos"
+@rendermode InteractiveServer
+@inject NavigationManager navigation
+@inject ProductosService productosService
+@inject NotificationService notificationService
+
+<PageTitle>Crear Nuevo Producto</PageTitle>
+<EditForm Model="producto" OnValidSubmit="Crear">
+    <DataAnnotationsValidator />
+    <div class="container">
+        <div class="card shadow-lg">
+            @*Header*@
+            <div class="card-header">
+                <h3 class="text-center"><strong>Crear Nuevo Producto</strong></h3>
+            </div>
+            @*Body*@
+            <div class="card-body">
+                @*Fila #1*@
+                <div class="row mb-3">
+                   
+                    <div class="col-4">
+                        @*Nombre*@
+                        <label class="form-label" for="nombre"><strong>Nombre:</strong></label>
+                        <InputText id="nombre" class="form-control" @bind-Value="producto.Nombre" placeholder="Nombre del articulo"></InputText>
+                        <ValidationMessage For="@(() => producto.Nombre)"></ValidationMessage>
+                    </div>
+                    <div class="col-6">
+                        @*Descripcion*@
+                        <label class="form-label" for="descripcion"><strong>Descripci&oacute;n:</strong></label>
+                        <InputText id="descripcion" class="form-control" @bind-Value="producto.Descripcion" placeholder="Descripcion del articulo"></InputText>
+                        <ValidationMessage For="@(() => producto.Descripcion)"></ValidationMessage>
+                    </div>
+                </div>
+                @*Fila #2*@
+                <div class="row mb-3">
+                    <div class="col-3">
+                        @*Costo*@
+                        <label class="form-label" for="costo"><strong>Costo:</strong></label>
+                        <InputNumber id="costo" class="form-control" @bind-Value="producto.Costo" @onblur="CalcularPrecioVenta"></InputNumber>
+                        <ValidationMessage For="@(() => producto.Costo)"></ValidationMessage>
+                    </div>
+                    <div class="col-3">
+                        @*Cantidad*@
+                        <label class="form-label" for="cantidad"><strong>Cantidad:</strong></label>
+                        <InputNumber id="cantidad" class="form-control" @bind-Value="producto.Cantidad"></InputNumber>
+                        <ValidationMessage For="@(() => producto.Cantidad)"></ValidationMessage>
+                    </div>
+
+                    <div class="col-3">
+                        @*Precio*@
+                        <label class="form-label" for="venta"><strong>Precio de Venta:</strong></label>
+                        <InputNumber id="venta" class="form-control" @bind-Value="producto.PrecioVenta" @onblur="CalcularPrecioVenta"></InputNumber>
+                        <ValidationMessage For="@(() => producto.PrecioVenta)"></ValidationMessage>
+                    </div>
+
+                    <div class="col-3">
+                        @*Porcentaje*@
+                        <label class="form-label" for="ganancia"><strong>Ganancia($):</strong></label>
+                        <InputNumber id="ganancia" class="form-control" @bind-Value="producto.PorcentajeGanancia" readonly></InputNumber>
+                        <ValidationMessage For="@(() => producto.PorcentajeGanancia)"></ValidationMessage>
+                    </div>
+                </div>
+            </div>
+            @*Footer*@
+            <div class="card-footer d-flex justify-content-center">
+                <div class="px-2">
+                    <button type="button" class="btn btn-outline-primary" @onclick="Volver"><i class="bi bi-box-arrow-left" /> Volver</button>
+                </div>
+                <button type="submit" class="btn btn-outline-success"><i class="bi bi-floppy-fill" /> Crear</button>
+            </div>
+        </div>
+    </div>
+</EditForm>
+<RadzenNotification />
+
+@code {
+    public Productos producto { get; set; } = new Productos();
+
+    public async void Crear()
+    {
+        if (await Validar())
+        {
+            MostrarNotificacion("Error", "Verifique los datos ingresados", NotificationSeverity.Error);
+            return;
+        }
+        else
+        {
+            var crear = await productosService.Crear(producto);
+            if (crear)
+            {
+                MostrarNotificacion("Éxito", "Producto creado correctamente", NotificationSeverity.Success);
+                await Task.Delay(2000);
+                Volver();
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    public async Task<bool> Validar()
+    {
+        if (string.IsNullOrEmpty(producto.Nombre) || producto.Costo <= 0 || producto.PrecioVenta <= 0)
+        {
+            return true;
+        }
+
+        var existe = await productosService.ExisteNombre(producto.Nombre);
+        if (existe)
+        {
+            MostrarNotificacion("Error", "El producto ya existe", NotificationSeverity.Error);
+            return true;
+        }
+
+        return false;
+    }
+
+    public void CalcularPrecioVenta()
+    {
+        producto.PorcentajeGanancia = producto.PrecioVenta - producto.Costo;
+    }
+
+    void Volver()
+    {
+        navigation.NavigateTo("/Productos");
+    }
+
+    void MostrarNotificacion(string titulo, string mensaje, NotificationSeverity severidad)
+    {
+        var notification = new NotificationMessage
+            {
+                Severity = severidad,
+                Summary = titulo,
+                Detail = mensaje,
+                Duration = 3000
+            };
+        notificationService.Notify(notification);
+    }
+}

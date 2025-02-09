@@ -1,0 +1,305 @@
+﻿@page "/CreateFinanciamientos"
+@rendermode InteractiveServer
+@inject NavigationManager navigation
+@inject FinanciamientoService financiamientoService
+@inject ProductosService productosService
+@inject NotificationService notificationService
+
+<PageTitle>Crear Venta Financiada</PageTitle>
+<EditForm Model="financiamiento" OnValidSubmit="CrearFinanciamiento">
+    <DataAnnotationsValidator />
+    <div class="container">
+        <div class="card shadow-lg">
+            <!-- Header -->
+            <div class="card-header">
+                <h3 class="text-center"><strong>Crear Venta Financiada</strong></h3>
+            </div>
+            <!-- Body -->
+            <div class="card-body">
+                <!-- Datos de Factura -->
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label" for="nombreCliente"><strong>Cliente:</strong></label>
+                        <InputText id="nombreCliente" class="form-control" @bind-Value="financiamiento.NombreCliente" placeholder="Ej: Juan Pérez"></InputText>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="direccion"><strong>Dirección:</strong></label>
+                        <InputText id="direccion" class="form-control" @bind-Value="financiamiento.Direccion" placeholder="Ej: Ave. Libertad #10"></InputText>
+                    </div>
+                </div>
+
+                <!-- Datos de Financiamiento -->
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label" for="telefono"><strong>Teléfono:</strong></label>
+                        <InputText id="telefono" class="form-control" @bind-Value="financiamiento.Telefono" placeholder="Ej: 829-284-3031"></InputText>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="email"><strong>Email:</strong></label>
+                        <InputText id="email" class="form-control" @bind-Value="financiamiento.Email" placeholder="Ej: usuario@gmail.com"></InputText>
+                    </div>
+                </div>
+
+                <!-- Datos de Forma de Pago -->
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label" for="formaPago"><strong>Forma de Pago:</strong></label>
+                        <InputText id="formaPago" class="form-control" @bind-Value="financiamiento.FormaPago"></InputText>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" for="cantidadPago"><strong>Cantidad de Pagos:</strong></label>
+                        <InputNumber id="cantidadPago" class="form-control" @bind-Value="financiamiento.CantidadPago" @oninput="CalcularPagoPorCuota"></InputNumber>
+                    </div>
+
+                    <div class="col-6">
+                        <label class="form-label" for="cantidadPago"><strong>Ganancia:</strong></label>
+                        <InputNumber id="cantidadPago" class="form-control" @bind-Value="financiamiento.ganancia" @oninput="CalcularPagoPorCuota"></InputNumber>
+                    </div>
+                </div>
+
+                <!-- Detalle de Factura -->
+                <fieldset class="border-primary border border-2">
+                    <div class="card-body">
+                        <section class="row mb-4">
+                            <div class="col-4">
+                                <label class="form-label" for="producto"><strong>Producto:</strong></label>
+                                <InputSelect id="producto" class="form-select" @bind-Value="productoId" @oninput="CalcularMonto">
+                                    <option value="0" disabled>Elige una opción</option>
+                                    @foreach (var producto in productos)
+                                    {
+                                        <option value="@producto.ProductoId">@producto.Nombre</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label" for="cantidad"><strong>Cantidad:</strong></label>
+                                <InputNumber id="cantidad" class="form-control" @bind-Value="cantidad" @oninput="CalcularMonto"></InputNumber>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label" for="descuento"><strong>Descuento (%):</strong></label>
+                                <InputNumber id="descuento" class="form-control" @bind-Value="descuento" @oninput="CalcularMonto"></InputNumber>
+                            </div>
+                            <div class="col-4 d-flex align-items-end">
+                                <button type="button" class="btn btn-outline-success" @onclick="AgregarDetalle"><i class="bi bi-plus-circle" /> Agregar</button>
+                            </div>
+                        </section>
+                        <section>
+                            @if (financiamiento.VentasDetalles.Count > 0)
+                            {
+                                <table class="table table-bordered miTabla">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Cantidad</th>
+                                            <th>Precio de Venta</th>
+                                            <th>Descuento (%)</th>
+                                            <th>Total</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var detalle in financiamiento.VentasDetalles)
+                                        {
+                                            <tr>
+                                                <td>@ObtenerNombreProducto(detalle.ProductoId)</td>
+                                                <td>@detalle.Cantidad</td>
+                                                <td>@detalle.PrecioVenta.ToString("N2")</td>
+                                                <td>@detalle.Descuento.ToString("N2")</td>
+                                                <td>@detalle.SubTotal.ToString("N2")</td>
+                                                <td><button type="button" class="btn btn-outline-danger" @onclick="()=> EliminarDetalle(detalle)"><i class="bi bi-trash3-fill" /></button></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+
+                                <div class="row">
+                                    <div class="col text-start">
+                                        <p><strong>Total de Productos: </strong>@financiamiento.VentasDetalles.Count</p>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col text-end">
+                                        <h5><strong>Total:</strong> $@((financiamiento.VentasDetalles.Sum(f => f.SubTotal) + financiamiento.ganancia).ToString("N2"))</h5>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col text-end">
+                                        <h5><strong>Total por Cuota:</strong> $@financiamiento.TotalPorPago.ToString("N2")</h5>
+                                    </div>
+                                </div>
+                            }
+                        </section>
+                    </div>
+                </fieldset>
+            </div>
+
+            <!-- Footer -->
+            <div class="card-footer d-flex justify-content-center">
+                <div class="px-2">
+                    <button type="button" class="btn btn-outline-primary" @onclick="Volver"><i class="bi bi-box-arrow-left" /> Volver</button>
+                </div>
+                <button type="submit" class="btn btn-outline-success"><i class="bi bi-floppy-fill" /> Crear</button>
+            </div>
+        </div>
+    </div>
+</EditForm>
+<RadzenNotification />
+
+@code {
+    public Financiamiento financiamiento { get; set; } = new Financiamiento();
+    public int productoId { get; set; }
+    public int cantidad { get; set; }
+    public decimal descuento { get; set; }
+    public decimal precioVenta { get; set; }
+    public decimal subTotal { get; set; }
+    public List<Productos> productos = new List<Productos>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        productos = await productosService.Listar(e => true);
+    }
+
+    public async Task CrearFinanciamiento()
+    {
+        if (await Validar())
+        {
+            MostrarNotificacion("Error", "Por favor complete todos los campos requeridos y agregue al menos un producto.", NotificationSeverity.Error);
+            return;
+        }
+
+        CalcularPagoPorCuota();
+        await financiamientoService.Crear(financiamiento);
+        await ReducirInventario();
+        MostrarNotificacion("Éxito", "Cuenta por cobrar creada exitosamente.", NotificationSeverity.Success);
+        await Task.Delay(2000);
+        Volver();
+    }
+
+    public async Task<bool> Validar()
+    {
+        if (string.IsNullOrEmpty(financiamiento.NombreCliente) ||
+            string.IsNullOrEmpty(financiamiento.Direccion) ||
+            financiamiento.VentasDetalles.Count == 0)
+        {
+            return true;
+        }
+
+        foreach (var detalle in financiamiento.VentasDetalles)
+        {
+            if (productos.All(p => p.ProductoId != detalle.ProductoId))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public string ObtenerNombreProducto(int id)
+    {
+        var producto = productos.FirstOrDefault(p => p.ProductoId == id);
+        return producto?.Nombre ?? "Producto no encontrado";
+    }
+
+    public async Task ReducirInventario()
+    {
+        foreach (var detalle in financiamiento.VentasDetalles)
+        {
+            var producto = productos.FirstOrDefault(p => p.ProductoId == detalle.ProductoId);
+            if (producto != null)
+            {
+                producto.Cantidad -= detalle.Cantidad;
+                await productosService.Modificar(producto);
+            }
+        }
+    }
+
+    public void AgregarDetalle()
+    {
+        var nuevoDetalle = new VentasDetalle
+            {
+                ProductoId = productoId,
+                Cantidad = cantidad,
+                PrecioVenta = precioVenta,
+                Descuento = descuento,
+                SubTotal = CalcularSubTotal(precioVenta, cantidad, descuento)
+            };
+
+        financiamiento.VentasDetalles.Add(nuevoDetalle);
+        MostrarNotificacion("Éxito", "Detalle agregado correctamente.", NotificationSeverity.Success);
+        LimpiarPantalla();
+        CalcularMontoTotal();
+        CalcularPagoPorCuota();
+    }
+
+    public void EliminarDetalle(VentasDetalle detalle)
+    {
+        financiamiento.VentasDetalles.Remove(detalle);
+        MostrarNotificacion("Éxito", "Detalle eliminado correctamente.", NotificationSeverity.Success);
+        CalcularMontoTotal();
+        CalcularPagoPorCuota();
+    }
+
+    public void CalcularMonto()
+    {
+        if (productoId != 0)
+        {
+            var producto = productos.FirstOrDefault(p => p.ProductoId == productoId);
+            if (producto != null)
+            {
+                precioVenta = producto.PrecioVenta;
+                subTotal = CalcularSubTotal(precioVenta, cantidad, descuento);
+            }
+        }
+    }
+
+    private decimal CalcularSubTotal(decimal precioVenta, int cantidad, decimal descuento)
+    {
+        var totalSinDescuento = precioVenta * cantidad;
+        var descuentoAplicado = (totalSinDescuento * descuento) / 100;
+        return totalSinDescuento - descuentoAplicado;
+    }
+
+    public void CalcularMontoTotal()
+    {
+        decimal total = financiamiento.VentasDetalles.Sum(d => d.SubTotal);
+        if (financiamiento.CantidadPago > 0)
+        {
+            financiamiento.TotalPorPago = total / financiamiento.CantidadPago;
+        }
+    }
+
+    public void CalcularPagoPorCuota()
+    {
+        decimal total = financiamiento.VentasDetalles.Sum(d => d.SubTotal);
+        total += financiamiento.ganancia;
+        if (financiamiento.CantidadPago > 0)
+        {
+            financiamiento.TotalPorPago = total / financiamiento.CantidadPago;
+        }
+    }
+
+    public void LimpiarPantalla()
+    {
+        productoId = 0;
+        cantidad = 0;
+        descuento = 0;
+        precioVenta = 0;
+        subTotal = 0;
+    }
+
+    void Volver() => navigation.NavigateTo("/Financiamientos");
+
+    void MostrarNotificacion(string titulo, string mensaje, NotificationSeverity severidad)
+    {
+        var notification = new NotificationMessage
+            {
+                Severity = severidad,
+                Summary = titulo,
+                Detail = mensaje,
+                Duration = 3000
+            };
+        notificationService.Notify(notification);
+    }
+}

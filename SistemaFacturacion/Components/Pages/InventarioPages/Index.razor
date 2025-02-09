@@ -1,0 +1,158 @@
+﻿@page "/Inventario"
+@rendermode InteractiveServer
+@inject ProductosService productosService
+@inject NavigationManager navigation
+
+<PageTitle>Inventario</PageTitle>
+<div class="container imagenFondo">
+    <div class="card shadow-lg">
+        @*Header*@
+        <div class="card-header">
+            <h3 class="text-center"><strong>Inventario</strong></h3>
+        </div>
+        @*Body*@
+        <div class="card-body">
+            @if (loading)
+            {
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border text-info"></div>
+                </div>
+            }
+            else if (productos.Count == 0)
+            {
+                <h1 class="miMensaje"><i class="bi bi-exclamation-triangle" /> No hay productos creados</h1>
+            }
+            else
+            {
+                @*Campos a Filtrar*@
+                <div class="mb-3">
+                    <div class="row align-items-center">
+                        <label class="form-label" for="filtro"><strong>Campo a Filtrar:</strong></label>
+                        <div class="col-3">
+                            <InputSelect id="filtro" class="form-select" @bind-Value="filtro">
+                                <option selected disabled>Elije una opción</option>
+                                <option value="nombre">Nombre</option>
+                                <option value="descripcion">Descripción</option>
+                            </InputSelect>
+                        </div>
+                        <div class="col-auto miFlecha">
+                            <p>→</p>
+                        </div>
+                        <div class="col-4">
+                            <div class="input-group">
+                                <InputText class="form-control" @bind-Value="valorFiltro" placeholder="Ingrese un dato para filtrar"></InputText>
+                                <button type="button" class="btn btn-outline-primary" @onclick="Buscar"><i class="bi bi-search" /></button>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="Restablecer"><i class="bi bi-arrow-clockwise" /> Restablecer</button>
+                        </div>
+                    </div>
+                </div>
+
+                <table class="table table-bordered miTabla">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Cantidad en Inventario</th>
+                            <th>Precio de Venta</th>
+                            <th>Valor del Inventario</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var producto in productos.Skip((paginaActual - 1) * productosPorPagina).Take(productosPorPagina))
+                        {
+                            <tr>
+                                <td>@producto.Nombre</td>
+                                <td>@producto.Descripcion</td>
+                                <td>@producto.Cantidad</td>
+                                <td>@producto.PrecioVenta.ToString("N2")</td>
+                                <td>@CalcularValorInventario(producto.ProductoId).ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @*Paginación*@
+                <div class="d-flex justify-content-between">
+                    <button class="btn btn-primary" @onclick="PaginaAnterior" disabled="@(paginaActual == 1)">Anterior</button>
+                    <span>Página @paginaActual de @totalPaginas</span>
+                    <button class="btn btn-primary" @onclick="PaginaSiguiente" disabled="@(paginaActual == totalPaginas)">Siguiente</button>
+                </div>
+            }
+        </div>
+        <div class="card-footer">
+            <div class="row">
+                <div class="col text-start">
+                    <p><strong>Total de Productos:</strong> @productos.Count</p>
+                </div>
+                <div class="col text-end">
+                    <p><strong>Total Valor en Inventario:</strong> @productos.Sum(p => p.Cantidad * p.PrecioVenta).ToString("N2")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    public List<Productos> productos = new List<Productos>();
+    public string filtro { get; set; }
+    public string valorFiltro { get; set; }
+    public string mensaje { get; set; }
+    public bool loading { get; set; } = true;
+    public int paginaActual { get; set; } = 1;
+    public int productosPorPagina { get; set; } = 10;
+    public int totalPaginas => (int)Math.Ceiling((double)productos.Count / productosPorPagina);
+
+    protected override async Task OnInitializedAsync()
+    {
+        productos = await productosService.Listar(e => true);
+        loading = false;
+    }
+
+    public async Task Buscar()
+    {
+        var productosList = await productosService.Listar(e => true);
+        switch (filtro)
+        {
+            case "nombre":
+                productos = productosList.Where(e => e.Nombre.Contains(valorFiltro, StringComparison.OrdinalIgnoreCase)).ToList();
+                break;
+            case "descripcion":
+                productos = productosList.Where(e => e.Descripcion.Contains(valorFiltro, StringComparison.OrdinalIgnoreCase)).ToList();
+                break;
+        }
+        paginaActual = 1;
+        StateHasChanged();
+    }
+
+    public decimal CalcularValorInventario(int id)
+    {
+        var producto = productos.FirstOrDefault(p => p.ProductoId == id);
+        return producto != null ? producto.PrecioVenta * producto.Cantidad : 0;
+    }
+
+    public async Task Restablecer()
+    {
+        productos = await productosService.Listar(e => true);
+        paginaActual = 1;
+        StateHasChanged();
+    }
+
+    public void PaginaAnterior()
+    {
+        if (paginaActual > 1)
+        {
+            paginaActual--;
+        }
+    }
+
+    public void PaginaSiguiente()
+    {
+        if (paginaActual < totalPaginas)
+        {
+            paginaActual++;
+        }
+    }
+}

@@ -1,0 +1,187 @@
+﻿@page "/ViewFinanciamiento"
+@page "/ViewFinanciamiento/financiamientoId={financiamientoId:int}"
+@rendermode InteractiveServer
+@inject NavigationManager navigation
+@inject FinanciamientoService financiamientoService
+@inject ProductosService productosService
+@inject IJSRuntime JS
+
+<PageTitle>Detalles de la Venta Financiada</PageTitle>
+
+<div class="container mt-4">
+    <div class="card shadow-lg p-4">
+        <div id="pdf-section">
+            <img src="Imagenes/logo.jpg" alt="Factura Electrónica" class="logo-small" />
+            <hr />
+            <div class="d-flex justify-content-between">
+                <div>
+                    <p><strong>Cliente:</strong> @financiamiento?.NombreCliente</p>
+                    <p><strong>Fecha:</strong> @financiamiento?.FechaCreacion.ToShortDateString()</p>
+                    <p><strong>Dirección:</strong> @financiamiento?.Direccion</p>
+                    <p><strong>Teléfono:</strong> @financiamiento?.Telefono</p>
+                    <p><strong>Email:</strong> @financiamiento?.Email</p>
+                    <p><strong>Cantidad de Pago:</strong> @financiamiento?.CantidadPago.ToString("N2")</p>
+                    <p><strong>Forma de Pago:</strong> @financiamiento?.FormaPago</p>
+                    <p><strong>Cuotas de Pago:</strong> @financiamiento?.TotalPorPago.ToString("N2")</p>
+                </div>
+            </div>
+            <hr />
+
+            @if (financiamiento.VentasDetalles.Any())
+            {
+                <table class="table table-striped mt-4">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio de Venta</th>
+                            <th>Descuento (%)</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var detalle in financiamiento.VentasDetalles)
+                        {
+                            <tr>
+                                <td>@ObtenerNombreProducto(detalle.ProductoId)</td>
+                                <td>@detalle.Cantidad</td>
+                                <td>@detalle.PrecioVenta.ToString("N2")</td>
+                                <td>@detalle.Descuento.ToString("N2")</td>
+                                <td>@detalle.SubTotal.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div class="row">
+                    <div class="col text-start">
+                        <p><strong>Total de Productos:</strong> @financiamiento.VentasDetalles.Count</p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col text-end">
+                        <h5><strong>Total:</strong> $@financiamiento.VentasDetalles.Sum(f => f.SubTotal).ToString("N2")</h5>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col text-end">
+                        <h5><strong>Cantidad de Pagos:</strong> @financiamiento.CantidadPago.ToString("N2")</h5>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col text-end">
+                        <h5><strong>Total por Cuota:</strong> $@financiamiento.TotalPorPago.ToString("N2")</h5>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <p class="text-danger">No se encontraron detalles de la factura.</p>
+            }
+
+            <hr />
+
+            <div class="card-footer">
+                <p><strong>Financiamiento Válido por 30 días!</strong></p>
+            </div>
+        </div>
+
+        <div class="mt-4 d-flex justify-content-end">
+            <button type="button" class="btn btn-outline-primary me-2" @onclick="Volver">
+                <i class="bi bi-box-arrow-left"></i> Volver
+            </button>
+            <button type="button" class="btn btn-outline-success me-2" @onclick="Print">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+            <button type="button" class="btn btn-outline-info me-2" @onclick="EnviarPorWhatsApp">
+                <i class="bi bi-whatsapp"></i> Enviar por WhatsApp
+            </button>
+
+
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int financiamientoId { get; set; }
+
+    public Financiamiento financiamiento { get; set; } = new();
+    public List<Productos> productos { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(500);
+        productos = await productosService.Listar(e => true);
+
+        financiamiento = await financiamientoService.Buscar(financiamientoId);
+
+        if (financiamiento == null || financiamiento.VentasDetalles == null)
+        {
+            financiamiento = new Financiamiento { VentasDetalles = new List<VentasDetalle>() };
+        }
+    }
+
+    public string ObtenerNombreProducto(int id)
+    {
+        var dato = productos.FirstOrDefault(c => c.ProductoId == id);
+        return dato?.Nombre ?? "Producto no encontrado";
+    }
+
+    public async Task Print()
+    {
+        await JS.InvokeVoidAsync("printPage");
+    }
+
+    void Volver()
+    {
+        navigation.NavigateTo("/Financiamientos");
+    }
+
+  public async Task EnviarPorWhatsApp()
+{
+    // Generar el mensaje con la información de la factura
+    var mensaje = $"Factura de Venta\n\n" +
+                  $"Cliente: {financiamiento?.NombreCliente}\n" +
+                  $"Fecha: {financiamiento?.FechaCreacion.ToShortDateString()}\n" +
+                  $"Dirección: {financiamiento?.Direccion}\n" +
+                  $"Teléfono: {financiamiento?.Telefono}\n" +
+                  $"Email: {financiamiento?.Email}\n" +
+                  $"Cantidad de Pago: {financiamiento?.CantidadPago.ToString("N2")}\n" +
+                  $"Forma de Pago: {financiamiento?.FormaPago}\n" +
+                  $"Cuotas de Pago: {financiamiento?.TotalPorPago.ToString("N2")}\n\n";
+
+    // Agregar los detalles de la venta
+    foreach (var detalle in financiamiento.VentasDetalles)
+    {
+        mensaje += $"Producto: {ObtenerNombreProducto(detalle.ProductoId)}\n" +
+                   $"Cantidad: {detalle.Cantidad}\n" +
+                   $"Precio de Venta: {detalle.PrecioVenta.ToString("N2")}\n" +
+                   $"Descuento: {detalle.Descuento.ToString("N2")}\n" +
+                   $"Total: {detalle.SubTotal.ToString("N2")}\n\n";
+    }
+
+    // Convertir el mensaje en un formato adecuado para WhatsApp
+    var mensajeCodificado = Uri.EscapeDataString(mensaje);
+
+    // Crear el enlace para enviar por WhatsApp
+    var url = $"https://wa.me/?text={mensajeCodificado}";
+
+    // Abrir el enlace en una nueva ventana
+    await JS.InvokeVoidAsync("open", url, "_blank");
+}
+
+
+
+
+}
+
+<style>
+    .logo-small {
+        width: 150px; /* Ajusta el tamaño del logo */
+        height: auto; /* Mantiene la proporción del logo */
+    }
+</style>

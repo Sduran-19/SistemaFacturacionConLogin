@@ -1,0 +1,202 @@
+﻿@page "/Ventas"
+@rendermode InteractiveServer
+@inject FacturasService facturasService
+@inject NavigationManager navigation
+
+<PageTitle>Ventas</PageTitle>
+<div class="container">
+    <div class="card shadow-lg">
+        <!-- Header -->
+        <div class="card-header">
+            <h3><strong>Ventas</strong></h3>
+            <button type="button" class="btn btn-outline-primary" @onclick="IrACrear"><i class="bi bi-plus-circle" /> Crear</button>
+        </div>
+        <!-- Body -->
+        <div class="card-body">
+            @if (loading)
+            {
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border text-info"></div>
+                </div>
+            }
+            else if (facturas.Count == 0)
+            {
+                <h1 class="miMensaje"><i class="bi bi-exclamation-triangle" /> No hay facturas creadas</h1>
+            }
+            else
+            {
+                <!-- Filtros -->
+                <div class="mb-3">
+                    <div class="row align-items-center">
+                        <label class="form-label" for="filtro"><strong>Campo a Filtrar:</strong></label>
+                        <div class="col-3">
+                            <InputSelect id="filtro" class="form-select" @bind-Value="filtro">
+                                <option selected disabled>Elije una opci&oacute;n</option>
+                                <option value="nombre">Nombre</option>
+                            </InputSelect>
+                        </div>
+                        <div class="col-auto miFlecha">
+                            <p>→</p>
+                        </div>
+                        <div class="col-4">
+                            <div class="input-group">
+                                <InputText class="form-control" @bind-Value="valorFiltro" placeholder="Ingrese un dato para filtrar"></InputText>
+                                <button type="button" class="btn btn-outline-primary" @onclick="Buscar"><i class="bi bi-search" /></button>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="Restablecer"><i class="bi bi-arrow-clockwise" /> Restablecer</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Facturas -->
+                <table class="table table-bordered miTabla">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                           
+                            <th>Monto de Venta</th>
+                            <th>Descuento</th>
+                            <th>Monto de Venta con descuento</th>
+                            <th>Actividades</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var factura in facturas)
+                        {
+                            <tr>
+                                <td>@factura.FechaCreacion.ToShortDateString()</td>
+                                <td>@factura.NombreCliente</td>
+                               
+                                <td>@factura.FacturaDetalle.Sum(fd => fd.SubTotal + fd.Impuesto).ToString("N2")</td>
+                                <td>@factura.FacturaDetalle.Sum(fd => (fd.SubTotal * (fd.Descuento  / 100))).ToString("N2")</td>
+                                <td>@factura.FacturaDetalle.Sum(fd => (fd.SubTotal - (fd.SubTotal * (fd.Descuento / 100)) + fd.Impuesto)).ToString("N2")</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-outline-info" @onclick="()=> IrADetalles(factura.VentasId)" data-bs-toggle="tooltip" data-bs-placement="top" title="Ver detalles">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning" @onclick="()=> IrAEditar(factura.VentasId)" data-bs-toggle="tooltip" data-bs-placement="top" title="Editar">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger" @onclick="()=> IrAEliminar(factura.VentasId)" data-bs-toggle="tooltip" data-bs-placement="top" title="Eliminar">
+                                            <i class="bi bi-trash3-fill"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @*Paginación*@
+                <div class="d-flex justify-content-between">
+                    <button class="btn btn-primary" @onclick="PaginaAnterior" disabled="@(paginaActual == 1)">Anterior</button>
+                    <span>Página @paginaActual de @totalPaginas</span>
+                    <button class="btn btn-primary" @onclick="PaginaSiguiente" disabled="@(paginaActual == totalPaginas)">Siguiente</button>
+                </div>
+            }
+        </div>
+
+
+            <!-- Footer -->
+            <div class="card-footer">
+                <p><strong>Total de Facturas:</strong> @facturas.Count</p>
+                <p><strong>Total de Ventas:</strong> @TotalVentas.ToString("N2")</p>
+            </div>
+       
+    </div>
+</div>
+
+@code {
+    public List<Ventas> facturas = new List<Ventas>();
+    public string filtro { get; set; }
+    public string valorFiltro { get; set; }
+    public string mensaje { get; set; }
+    public bool loading { get; set; } = true;
+    public decimal TotalVentas { get; set; }
+      public List<Productos> productos = new List<Productos>();
+    private int paginaActual = 1;
+    private int productosPorPagina = 10;
+    private int totalPaginas => (int)Math.Ceiling((double)facturas.Count / productosPorPagina);
+
+    protected override async Task OnInitializedAsync()
+    {
+        facturas = await facturasService.Listar(e => true);
+        TotalVentas = facturas.Sum(f => f.FacturaDetalle.Sum(fd => fd.SubTotal - (fd.SubTotal * (fd.Descuento / 100)) + fd.Impuesto));
+        loading = false;
+
+        if (facturas.Count == 0)
+            StateHasChanged();
+    }
+
+    public async Task Buscar()
+    {
+        List<Ventas> resultado = new List<Ventas>();
+
+        var facturasList = await facturasService.Listar(e => true);
+
+        switch (filtro)
+        {
+           
+            case "nombre":
+                resultado = facturasList.Where(e =>
+                    e.NombreCliente.Contains(valorFiltro, StringComparison.OrdinalIgnoreCase)).ToList();
+                break;
+        }
+
+        if (resultado == null || resultado.Count == 0)
+            mensaje = "No se encontraron facturas con el filtro especificado.";
+        else
+        {
+            facturas = resultado;
+            mensaje = string.Empty;
+        }
+
+        TotalVentas = facturas.Sum(f => f.FacturaDetalle.Sum(fd => fd.SubTotal - (fd.SubTotal * (fd.Descuento / 100)) + fd.Impuesto));
+        StateHasChanged();
+    }
+
+    public void PaginaAnterior()
+    {
+        if (paginaActual > 1)
+        {
+            paginaActual--;
+        }
+    }
+
+    public void PaginaSiguiente()
+    {
+        if (paginaActual < totalPaginas)
+        {
+            paginaActual++;
+        }
+    }
+
+    public async Task Restablecer()
+    {
+        facturas = await facturasService.Listar(e => true);
+        TotalVentas = facturas.Sum(f => f.FacturaDetalle.Sum(fd => fd.SubTotal - (fd.SubTotal * (fd.Descuento / 100)) + fd.Impuesto));
+    }
+
+    public void IrACrear()
+    {
+        navigation.NavigateTo("/CreateFacturas");
+    }
+
+    public void IrADetalles(int id)
+    {
+        navigation.NavigateTo($"/ViewFacturas/facturaId={id}");
+    }
+
+    public void IrAEditar(int id)
+    {
+        navigation.NavigateTo($"/EditFacturas/facturaId={id}");
+    }
+
+    public void IrAEliminar(int id)
+    {
+        navigation.NavigateTo($"/DeleteFacturas/facturaId={id}");
+    }
+}

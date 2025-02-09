@@ -1,0 +1,83 @@
+﻿@page "/DeleteProductos"
+@page "/DeleteProductos/productoId={productoId:int}"
+@rendermode InteractiveServer
+@inject NavigationManager navigation
+@inject ProductosService productosService
+@inject NotificationService notificationService
+
+<PageTitle>Eliminar Producto</PageTitle>
+<div class="container">
+	<div class="card shadow-lg">
+		@*Header*@
+		<div class="card-header">
+			<h3 class="text-center"><strong>Eliminar Producto</strong></h3>
+		</div>
+		@*Body*@
+		<div class="card-body">
+			<h4><strong>¿Est&aacute;s seguro de que quieres eliminar este producto?</strong></h4>
+			@*Datos*@
+			<ul>
+				<li><strong>Nombre:</strong> @producto.Nombre</li>
+				<li><strong>Descripci&oacute;n:</strong> @producto.Descripcion</li>
+				<li><strong>Costo:</strong> @producto.Costo.ToString("N2")</li>
+				<li><strong>Cantidad:</strong> @producto.Cantidad unid.</li>
+				<li><strong>Ganancia($):</strong> @producto.PorcentajeGanancia</li>
+				<li><strong>Precio de Venta:</strong> @producto.PrecioVenta.ToString("N2")</li>
+			</ul>
+		</div>
+		@*Footer*@
+		<div class="card-footer d-flex justify-content-center">
+			<div class="px-2">
+				<button type="button" class="btn btn-outline-danger" @onclick="Volver"><i class="bi bi-box-arrow-left" /> Volver</button>
+			</div>
+			<button type="button" class="btn btn-outline-dark" @onclick="Eliminar"><i class="bi bi-trash3-fill" /> Eliminar</button>
+		</div>
+	</div>
+</div>
+<RadzenNotification />
+
+@code {
+	[Parameter]
+	public int productoId { get; set; }
+	public Productos producto { get; set; } = new Productos();
+
+	protected override async Task OnInitializedAsync()
+	{
+		await Task.Delay(500);
+		producto = await productosService.Buscar(productoId);
+	}
+
+	public async void Eliminar()
+	{
+		var eliminar = await productosService.Eliminar(productoId);
+		if (eliminar)
+		{
+			MostrarNotificacion("Éxito", "Producto eliminado correctamente", NotificationSeverity.Success);
+			await Task.Delay(2000);
+			Volver();
+		}
+		else
+		{
+			MostrarNotificacion("Error", "Hubo un problema al eliminar el producto", NotificationSeverity.Error);
+		}
+
+		StateHasChanged();
+	}
+
+	void Volver()
+	{
+		navigation.NavigateTo("/Productos");
+	}
+
+	void MostrarNotificacion(string titulo, string mensaje, NotificationSeverity severidad)
+	{
+		var notification = new NotificationMessage
+			{
+				Severity = severidad,
+				Summary = titulo,
+				Detail = mensaje,
+				Duration = 3000
+			};
+		notificationService.Notify(notification);
+	}
+}
