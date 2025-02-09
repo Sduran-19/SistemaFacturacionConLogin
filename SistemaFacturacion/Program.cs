@@ -79,6 +79,9 @@ namespace SistemaFacturacion
                 .AddInteractiveWebAssemblyRenderMode()
                 .AddAdditionalAssemblies(typeof(Client._Imports).Assembly);
 
+            builder.Services.AddAuthorization();
+
+
             // Add additional endpoints required by the Identity /Account Razor components.
             app.MapAdditionalIdentityEndpoints();
 

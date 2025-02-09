@@ -1,7 +1,9 @@
 ﻿@page "/CuentasXcobrar"
+@using Microsoft.AspNetCore.Authorization
 @rendermode InteractiveServer
 @inject CuentasXcobrarService cuentasXcobrarService
 @inject NavigationManager navigation
+@attribute [Authorize] // Esto restringe el acceso
 
 <PageTitle>Cuentas por Cobrar</PageTitle>
 <div class="container">
