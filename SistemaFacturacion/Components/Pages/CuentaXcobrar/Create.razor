@@ -119,7 +119,9 @@
                 <div class="px-2">
                     <button type="button" class="btn btn-outline-primary" @onclick="Volver"><i class="bi bi-box-arrow-left" /> Volver</button>
                 </div>
-                <button type="submit" class="btn btn-outline-success"><i class="bi bi-floppy-fill" /> Crear</button>
+                <button type="submit" class="btn btn-outline-success" disabled="@(cuenta.VentasDetalles.Count == 0)">
+                    <i class="bi bi-floppy-fill" /> Crear
+                </button>
             </div>
         </div>
     </div>

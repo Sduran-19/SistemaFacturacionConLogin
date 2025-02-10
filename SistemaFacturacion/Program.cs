@@ -82,6 +82,7 @@ namespace SistemaFacturacion
             builder.Services.AddAuthorization();
 
 
+
             // Add additional endpoints required by the Identity /Account Razor components.
             app.MapAdditionalIdentityEndpoints();
 

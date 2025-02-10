@@ -117,7 +117,9 @@
                 <div class="px-2">
                     <button type="button" class="btn btn-outline-primary" @onclick="Volver"><i class="bi bi-box-arrow-left" /> Volver</button>
                 </div>
-                <button type="submit" class="btn btn-outline-success"><i class="bi bi-floppy-fill" /> Modificar</button>
+                <button type="submit" class="btn btn-outline-success" disabled="@(cuenta.VentasDetalles.Count == 0)">
+                    <i class="bi bi-floppy-fill" /> Modificar
+                </button>
             </div>
         </div>
     </div>
@@ -150,11 +152,32 @@
 
     public async Task EditarCuenta()
     {
+        if (await Validar())
+            return;
         await cuentasXcobrarService.Modificar(cuenta);
         await ReducirInventario();
         MostrarNotificacion("Éxito", "La cuenta por cobrar ha sido modificada correctamente.", NotificationSeverity.Success);
         await Task.Delay(2000);
         Volver();
+    }
+
+    public async Task<bool> Validar()
+    {
+        if (string.IsNullOrEmpty(cuenta.NombreCliente) ||
+                        cuenta.VentasDetalles.Count == 0)
+        {
+            return true; // Indica que hay errores
+        }
+
+        foreach (var detalle in cuenta.VentasDetalles)
+        {
+            if (productos.All(p => p.ProductoId != detalle.ProductoId))
+            {
+                return true; // Detiene el proceso
+            }
+        }
+
+        return false; // No hay errores
     }
 
     public string ObtenerNombreProducto(int id)

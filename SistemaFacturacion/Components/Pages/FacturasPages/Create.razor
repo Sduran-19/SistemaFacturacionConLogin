@@ -120,7 +120,9 @@
                 <div class="px-2">
                     <button type="button" class="btn btn-outline-primary" @onclick="Volver"><i class="bi bi-box-arrow-left" /> Volver</button>
                 </div>
-                <button type="submit" class="btn btn-outline-success"><i class="bi bi-floppy-fill" /> Crear</button>
+                <button type="submit" class="btn btn-outline-success" disabled="@(factura.FacturaDetalle.Count == 0)">
+                    <i class="bi bi-floppy-fill" /> Crear
+                </button>
             </div>
         </div>
     </div>
@@ -163,7 +165,24 @@
         }
     }
 
-    public async Task<bool> Validar() => false;
+    public async Task<bool> Validar()
+    {
+        if (string.IsNullOrEmpty(factura.NombreCliente) ||
+            factura.FacturaDetalle.Count == 0)
+        {
+            return true; // Indica que hay errores
+        }
+
+        foreach (var detalle in factura.FacturaDetalle)
+        {
+            if (productos.All(p => p.ProductoId != detalle.ProductoId))
+            {
+                return true; // Detiene el proceso
+            }
+        }
+
+        return false; // No hay errores
+    }
 
     public string ObtenerNombreProducto(int id)
     {

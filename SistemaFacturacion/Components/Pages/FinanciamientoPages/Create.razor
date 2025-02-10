@@ -139,7 +139,10 @@
                 <div class="px-2">
                     <button type="button" class="btn btn-outline-primary" @onclick="Volver"><i class="bi bi-box-arrow-left" /> Volver</button>
                 </div>
-                <button type="submit" class="btn btn-outline-success"><i class="bi bi-floppy-fill" /> Crear</button>
+                <button type="submit" class="btn btn-outline-success" disabled="@(financiamiento.VentasDetalles.Count == 0)">
+                    <i class="bi bi-floppy-fill" /> Crear
+                </button>
+
             </div>
         </div>
     </div>
@@ -171,13 +174,16 @@
         CalcularPagoPorCuota();
         await financiamientoService.Crear(financiamiento);
         await ReducirInventario();
-        MostrarNotificacion("Éxito", "Cuenta por cobrar creada exitosamente.", NotificationSeverity.Success);
+        MostrarNotificacion("Éxito", "Cuenta financiamiento creada exitosamente.", NotificationSeverity.Success);
         await Task.Delay(2000);
         Volver();
     }
 
     public async Task<bool> Validar()
     {
+
+           
+
         if (string.IsNullOrEmpty(financiamiento.NombreCliente) ||
             string.IsNullOrEmpty(financiamiento.Direccion) ||
             financiamiento.VentasDetalles.Count == 0)
