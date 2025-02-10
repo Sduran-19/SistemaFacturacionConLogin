@@ -48,6 +48,7 @@ namespace SistemaFacturacion
 
 
             builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
+                .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<Contexto>()
                 .AddSignInManager()
                 .AddDefaultTokenProviders();
