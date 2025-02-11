@@ -62,15 +62,38 @@
                     <div class="card-body">
                         <section class="row mb-4">
                             <div class="col-4">
+                                <!-- Búsqueda de Producto -->
                                 <label class="form-label" for="producto"><strong>Producto:</strong></label>
-                                <InputSelect id="producto" class="form-select" @bind-Value="productoId" @oninput="CalcularMonto">
-                                    <option value="0" disabled>Elige una opción</option>
-                                    @foreach (var producto in productos)
-                                    {
-                                        <option value="@producto.ProductoId">@producto.Nombre</option>
-                                    }
-                                </InputSelect>
+
+                                <div class="d-flex">
+                                    <InputText id="producto" class="form-control" @bind-Value="productoBuscar" placeholder="Escriba el nombre"></InputText>
+
+                                    <button type="button" class="btn btn-outline-primary ms-2" @onclick="FiltrarProductos">
+                                        Buscar
+                                    </button>
+
+                                    <button type="button" class="btn btn-outline-success" @onclick="AgregarDetalle"><i class="bi bi-plus-circle" /> Agregar</button>
+                                </div>
+
+                                <ValidationMessage For="@(() => productoBuscar)"></ValidationMessage>
+
+                                <!-- Lista de Productos Filtrados -->
+                                @if (productosFiltrados.Any())
+                                {
+                                    <ul class="list-group mt-2">
+                                        @foreach (var producto in productosFiltrados)
+                                        {
+                                            <li class="list-group-item" @onclick="() => SeleccionarProducto(producto)">
+                                                @producto.Nombre
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+
+
                             </div>
+
+
                             <div class="col-4">
                                 <label class="form-label" for="cantidad"><strong>Cantidad:</strong></label>
                                 <InputNumber id="cantidad" class="form-control" @bind-Value="cantidad" @oninput="CalcularMonto"></InputNumber>
@@ -79,9 +102,7 @@
                                 <label class="form-label" for="descuento"><strong>Descuento (%):</strong></label>
                                 <InputNumber id="descuento" class="form-control" @bind-Value="descuento" @oninput="CalcularMonto"></InputNumber>
                             </div>
-                            <div class="col-4 d-flex align-items-end">
-                                <button type="button" class="btn btn-outline-success" @onclick="AgregarDetalle"><i class="bi bi-plus-circle" /> Agregar</button>
-                            </div>
+                           
                         </section>
                         <section>
                             @if (financiamiento.VentasDetalles.Count > 0)
@@ -157,11 +178,41 @@
     public decimal precioVenta { get; set; }
     public decimal subTotal { get; set; }
     public List<Productos> productos = new List<Productos>();
+    public string productoBuscar { get; set; } = string.Empty;
+    public List<Productos> productosFiltrados { get; set; } = new List<Productos>();
 
     protected override async Task OnInitializedAsync()
     {
         productos = await productosService.Listar(e => true);
+        productosFiltrados = productos; // Inicializa con todos los productos
+        FiltrarProductos();
     }
+
+    public async Task FiltrarProductos()
+    {
+        if (string.IsNullOrEmpty(productoBuscar))
+        {
+            productosFiltrados = new List<Productos>(); // Si está vacío, no mostramos productos
+        }
+        else
+        {
+            productosFiltrados = productos
+                .Where(p => p.Nombre.Contains(productoBuscar, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        StateHasChanged();  // Forzar el re-renderizado
+    }
+
+
+    public async Task SeleccionarProducto(Productos productoSeleccionado)
+    {
+        productoId = productoSeleccionado.ProductoId;
+        productoBuscar = productoSeleccionado.Nombre; // Muestra el nombre seleccionado en el campo de texto
+        productosFiltrados.Clear(); // Limpiar la lista después de la selección
+        CalcularMonto(); // O cualquier otra función que necesites
+    }
+
 
     public async Task CrearFinanciamiento()
     {
